@@ -96,7 +96,7 @@ data Term =
   | Snd Term
   | Bind String Term Term
   | Protect Label Term
-  | TEE  Term -- ensure no recursive TEE
+  | TEE Label  Term -- ensure no recursive TEE
   deriving (Eq, Show, Typeable, Generic)
 
 

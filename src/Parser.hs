@@ -28,8 +28,7 @@ binding =
   
 gterm :: CParser Term
 gterm =
-  try (send <|> recv)
-  <|> try (bind <|> protect)
+  try (bind <|> protect)
   <|> try unit
   <|> try (first <|> second <|> pair)
   <|> (try injl <|> try injr <?> "boolean literal")
@@ -98,51 +97,46 @@ intLiteral = I <$> integer
 term :: CParser Term
 term =  (chainl1 gterm (return App))
        
-dtype :: CParser DotType
+dtype :: CParser Type
 dtype =
   try (unitty <|> intty)
   <|> sumty <|> prodty
   <|> funty
   <|> saysty <|>  dtype
 
-unitty :: CParser DotType
+unitty :: CParser Type
 unitty = do
   symbol "()"
   return UnitTy
 
-intty :: CParser DotType
+intty :: CParser Type
 intty = do
   symbol "int"
   return IntTy
 
 
-sumty :: CParser DotType
+sumty :: CParser Type
 sumty = do
   symbol "+"
   ty1 <- dtype
   ty2 <- dtype
   return (SumTy ty1 ty2)
 
-prodty :: CParser DotType
+prodty :: CParser Type
 prodty = do
   symbol "x"
   ty1 <- dtype
   ty2 <- dtype
   return (ProdTy ty1 ty2)
 
-funty :: CParser DotType
+funty :: CParser Type
 funty = do
   symbol "->"
   ty1 <- dtype
-  symbol "["
-  pc <- principal
-  symbol ","
-  theta <- principal
-  symbol "]"
-  ty2 <- ndtype
-  return (FunTy ty1 pc  M.empty ty2)
+  ty2 <- dtype
+  return (FunTy ty1 ty2)
 
-saysty :: CParser DotType
+saysty :: CParser Type
 saysty = do
   l <- principal
   reserved "says"
@@ -161,7 +155,7 @@ lam = do symbol "\\"
          symbol "]"
          symbol "."
          t <- term
-         return (Abs x ty pc M.empty t)
+         return (Abs x ty t)
 
 bind :: CParser Term
 bind = do reserved "bind"
