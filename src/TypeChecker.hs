@@ -34,11 +34,14 @@ tc gamma t =
       (ty, g1) <- tc gamma e1
       (ty3, g2) <- tc gamma e2
       a <- fresh
-      b <- unifyWithCtxt e1 ty (FunTy ty3 (TyVar a))                   
+      b <- unifyWithCtxt e1 ty (FunTy "x" ty3 (TyVar a)) -- Fix this for dependent types                   
       return (TyVar a,  (M.union (fst g1) (fst g2), M.union (snd g1) (snd g2)))
     Abs x ty e -> do
                   (ty', g') <- tc (extend x ty gamma) e
-                  return (FunTy ty ty', g')
+                  return (FunTy x ty ty', g')
+    CTrue -> return (BoolTy, gamma)
+    CFalse -> return (BoolTy, gamma)
+    I _ -> return (IntTy, gamma)
     Unit -> return (UnitTy, gamma)
     Case c x e1 y e2 ->
       do (condTy, gc) <- tc gamma c

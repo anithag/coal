@@ -28,7 +28,7 @@ binding =
   
 gterm :: CParser Term
 gterm =
-  try (bind <|> protect)
+  try (bind <|> protect <|> sign)
   <|> try unit
   <|> try (first <|> second <|> pair)
   <|> (try injl <|> try injr <?> "boolean literal")
@@ -97,12 +97,11 @@ intLiteral = I <$> integer
 term :: CParser Term
 term =  (chainl1 gterm (return App))
        
-dtype :: CParser Type
-dtype =
+ctype :: CParser Type
+ctype =
   try (unitty <|> intty)
   <|> sumty <|> prodty
-  <|> funty
-  <|> saysty <|>  dtype
+  <|> funty  <|> saysty
 
 unitty :: CParser Type
 unitty = do
@@ -118,41 +117,31 @@ intty = do
 sumty :: CParser Type
 sumty = do
   symbol "+"
-  ty1 <- dtype
-  ty2 <- dtype
+  ty1 <- ctype
+  ty2 <- ctype
   return (SumTy ty1 ty2)
 
 prodty :: CParser Type
 prodty = do
   symbol "x"
-  ty1 <- dtype
-  ty2 <- dtype
+  ty1 <- ctype
+  ty2 <- ctype
   return (ProdTy ty1 ty2)
 
 funty :: CParser Type
 funty = do
   symbol "->"
-  ty1 <- dtype
-  ty2 <- dtype
-  return (FunTy ty1 ty2)
+  x <- identifier
+  ty1 <- ctype
+  ty2 <- ctype
+  return (FunTy x ty1 ty2)
 
-saysty :: CParser Type
-saysty = do
-  l <- principal
-  reserved "says"
-  ty <- dtype
-  return (SaysTy l ty)
   
 lam :: CParser Term
 lam = do symbol "\\"
          x <- identifier
          symbol ":"
-         ty <- dtype
-         symbol "["
-         pc <- principal
-         symbol ","
-         theta <- principal 
-         symbol "]"
+         ty <- ctype
          symbol "."
          t <- term
          return (Abs x ty t)
@@ -166,46 +155,49 @@ bind = do reserved "bind"
           t2 <- term
           return (Bind x t1 t2)
 
-dflatelabel :: CParser Label
-dflatelabel  = do l <- identifier
-                  return  (Prim (N l))
-            
-protect :: CParser Term
-protect = do reserved "eta"
-             l <- dflatelabel
-             t <- term
-             return (Protect l t)
-
 principal :: CParser Principal
 principal =
-  top <|> bottom
-  <|> primitive
---  <|> computation
---  <|> (Prim  ltype)
+    primitive
+   <|> computation
+
 
    
 primitive :: CParser Principal
 primitive = do l <- identifier
-               return (Prim (N l))
-
-top, bottom :: CParser Principal
-top = symbol "top" >> return (Prim T)
-
-bottom = symbol "bot" >> return (Prim B)
+               return (N l)
 
 
-{-
+
 computation :: CParser Principal
-computation = do
-  l <- identifier
-  return (T l)
- -}
-  
+computation = do reserved "code{"
+                 t <- term
+                 symbol "}"
+                 return (Code t)
+ 
+saysty :: CParser Type
+saysty = do
+  p <- principal
+  reserved "says"
+  ty <- ctype
+  return (SaysTy (PrinTy p) ty)
+
+protect :: CParser Term
+protect = do reserved "eta"
+             p <- principal
+             t <- term
+             return (UnitM p t)
+
+sign :: CParser Term
+sign = do reserved "sign"
+          p <- principal
+          ty <- ctype
+          return (Sign p ty)
+
 tee :: CParser Term
-tee = do reserved "tee"
-         t <- principal
+tee = do reserved "mu"
+         t <- identifier
          e <- term
-         return (TEE t e)
+         return (Mu t e)
 
 parserprincipal :: CParser Principal
 parserprincipal = do whiteSpace

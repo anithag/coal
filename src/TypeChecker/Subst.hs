@@ -24,13 +24,13 @@ instance Subst Type where
                    Nothing -> TyVar x
                    Just ty -> ty
       ProdTy t1 t2 -> ProdTy (apply u t1) (apply u t2)
-      FunTy t1 t2 -> FunTy (apply u t1)  (apply u t2)
+      FunTy x t1 t2 -> FunTy x (apply u t1)  (apply u t2)
       t -> t
   tv ty =
     case ty of
       TyVar x -> [x]
       ProdTy ty1 ty2 -> tv ty1 `union` tv ty2
-      FunTy ty1 ty2 -> tv ty1 `union` tv ty2
+      FunTy x ty1 ty2 -> tv ty1 `union` tv ty2
       _ -> []
 
 instance Subst a => Subst [a] where
@@ -72,7 +72,7 @@ mguSet ((ty1,ty2):cs) =
      return (u2 @@ u1)
   
 mgu :: Type -> Type -> Either UnificationError Unifier
-mgu (FunTy ty1 ty2) (FunTy ty3 ty4) =
+mgu (FunTy x ty1 ty2) (FunTy y ty3 ty4) =
   mguSet [(ty1,ty3),(ty2,ty4)]
   {-  do u1 <- mgu ty1 ty3
      u2 <- mgu (apply u1 ty2) (apply u1 ty4)

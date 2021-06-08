@@ -24,7 +24,7 @@ data ThreadCfg =
 
 --instance SimulatorM CoalSim where
 
-eval :: ThreadCfg -> Maybe ThreadCfg
+eval :: ThreadCfg -> IO ThreadCfg
 eval cfg = case (term cfg) of
   Var x -> let tenv = env cfg in
     case (M.lookup x tenv) of
@@ -71,10 +71,12 @@ eval cfg = case (term cfg) of
     cfg1 <- eval cfg{term = t1}
     let e' = env cfg
     case (term cfg1) of
-      Protect l t -> return cfg{term = t2, env = M.insert x t e'}
+      UnitM l t -> return cfg{term = t2, env = M.insert x t e'}
       _ -> fail $ "Expected a protected value, received none"
-  Protect l t  -> do
+  UnitM l t  -> do
      cfg' <- eval cfg{term = t}
-     return cfg{term = Protect l (term cfg')} -- do the encryption/signing here?
+     return cfg{term = UnitM l (term cfg')} 
+  Sign l ty  -> return cfg
+  Represent t -> return cfg{term = t} -- a bit silly?
   _ -> fail  $ "Case not handled"
 
