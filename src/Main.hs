@@ -60,7 +60,26 @@ main =
      return ()
        where extName = reverse . takeWhile ((/=) '.') . reverse
 
-  
+
+-- Complex  ebpfVerifier
+-- Counts number of ebpf instructions
+cebpfVerifier :: Term
+cebpfVerifier =
+  (TAbs "Z" Comp
+    (Abs "x" (TyTyApp AST (TyVar "Z"))
+       (Letrec "loop"
+               (Abs "counter" IntTy
+                  (Abs "prog" ListTy
+                    (Match (Var "prog") [(Nil, (Var "counter")), (Cons (Var "t") (Var "tail"), 
+                           (Match (Var "t") [(EBPFAdd,  (App (App (Var "loop") (Inc (Var "counter")) )  (Var "tail"))), (EBPFSub,  (App (App (Var "loop") (Inc (Var "counter")) )  (Var "tail")) ), (EBPFMov,  (App (App (Var "loop") (Inc (Var "counter")) )  (Var "tail")) ) ]) )
+                    ]) -- end of outer match
+                  )
+               )
+               (App (App (Var "loop") (I 0)) (Var "x")) 
+       ) -- end of letrec
+    )
+   ) 
+
 
 -- Trivial ebpfVerifier 
 ebpfVerifier :: Term

@@ -30,6 +30,7 @@ data Type =
   UnitTy
   | IntTy
   | BoolTy
+  | ListTy
   | TyVar String
   | SumTy Type Type
   | ProdTy Type Type
@@ -63,7 +64,17 @@ data Term =
   | UnitM Principal Term
   | Sign Principal Type
   | Mu String  Term
+  -- Extensions --
   | Represent Term
+  | Inc Term
+  | Nil
+  | Cons Term Term
+  | Letrec String Term Term
+  | Match Term [(Term, Term)] -- pattern matching
+  -- BPF Extensions --
+  | EBPFAdd  
+  | EBPFSub
+  | EBPFMov
   deriving (Show, Typeable, Generic)
 
 type  Policy = Type
