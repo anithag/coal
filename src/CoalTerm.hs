@@ -30,7 +30,7 @@ data Type =
   UnitTy
   | IntTy
   | BoolTy
-  | ListTy
+  | ListTy Type
   | TyVar String
   | SumTy Type Type
   | ProdTy Type Type
@@ -41,7 +41,8 @@ data Type =
   | TyTeApp Type Term  -- Type Term application
   | TyTyApp Type Type  -- Type Type application
   | AST
-  | Terminate          -- Pre-defined predicate
+  | EBPFTy
+  | Safe          -- Pre-defined predicate
   deriving (Generic, Typeable)
 
 data Term =
@@ -50,6 +51,7 @@ data Term =
   | I Integer
   | CTrue
   | CFalse
+  | Le Term Term
   | InjL Term Type   -- inl t as τ₁ + τ₂
   | InjR Term Type   -- inr t as τ₁ + τ₂
   | Abs String Type  Term
@@ -75,6 +77,7 @@ data Term =
   | EBPFAdd  
   | EBPFSub
   | EBPFMov
+  | EBPFJmp
   deriving (Show, Typeable, Generic)
 
 type  Policy = Type
@@ -106,7 +109,9 @@ instance Show Type where
   show (TyTeApp ty t) = "(" ++ (show ty) ++ " " ++ (show t) ++ ")"
   show (TyTyApp ty1 ty2) = "(" ++ (show ty1) ++ " " ++ (show ty2) ++ ")"
   show AST = "AST"
-  show Terminate = "(Predicate) Terminate"
+  show EBPFTy = "ebpf"
+  show (ListTy ty) = "list " ++ (show ty)
+  show Safe = "(Predicate) Safe"
 
 
 -- Principal equivalences. Syntactic equivalence for now.
@@ -138,7 +143,8 @@ instance Eq Type where
   (TyTeApp ty1 t1) == (TyTeApp ty2 t2) = (ty1 == ty2) && (t1 == t2)
   (TyTyApp ty11 ty12) == (TyTyApp ty21 ty22) = (ty11 == ty21) && (ty12 == ty22)
   AST == AST = True
-  Terminate == Terminate = True
+  EBPFTy == EBPFTy = True
+  Safe == Safe = True
   _ == _ = False
   
 -- Term equivalences. Syntactic equivalence for now.
@@ -163,4 +169,8 @@ instance Eq Term where
    (Sign p1 ty1) == (Sign p2 ty2) = (p1 == p2) && (ty1 == ty2)
    (Mu p1 t1) == (Mu p2 t2) = (p1 == p2) && (t1 == t2)
    (Represent t1) == (Represent t2) = (t1 == t2)
+   EBPFAdd == EBPFAdd = True 
+   EBPFSub == EBPFSub = True 
+   EBPFMov == EBPFMov = True 
+   EBPFJmp == EBPFJmp = True 
    _ == _ = False

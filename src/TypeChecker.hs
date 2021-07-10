@@ -66,6 +66,20 @@ tc gamma t =
       do (ty1, g1) <- tc gamma e1
          (ty2, g2) <-  tc gamma e2
          return (ProdTy ty1 ty2,  (M.union (fst g1) (fst g2), M.union (snd g1) (snd g2)))
+    Nil -> do a <- fresh
+              return (ListTy (TyVar a), gamma)
+    Cons t1 t2 ->
+      do (ty1, g1) <- tc gamma t1
+         (ty2, g2) <- tc gamma t2
+         a <- fresh
+         unify ty2 (ListTy (TyVar a))
+         unify ty1 (TyVar a)
+         return (ListTy (TyVar a),   (M.union (fst g1) (fst g2), M.union (snd g1) (snd g2)))
+
+    EBPFAdd -> return (EBPFTy, gamma)
+    EBPFSub -> return (EBPFTy, gamma)
+    EBPFMov -> return (EBPFTy, gamma)
+    EBPFJmp -> return (EBPFTy, gamma)
 
 typeCheckWith :: TyEnv -> Term -> IO ()
 typeCheckWith tyEnv t =

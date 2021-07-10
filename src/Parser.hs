@@ -32,9 +32,13 @@ gterm =
   <|> try unit
   <|> try (first <|> second <|> pair)
   <|> (try injl <|> try injr <?> "boolean literal")
+  <|> nil <|> list
   <|> intLiteral
   <|> lam <|> parens term
   <|> try ite
+  <|> constructor
+  <|> cletrec
+  <|> match
   <|> (Var <$> identifier)
 
 unaryPrim :: String -> (Term -> Term) -> CParser Term
@@ -58,6 +62,9 @@ pair = parens (do a <- term
 
 unit :: CParser Term
 unit = symbol "()" >> return Unit
+
+nil :: CParser Term
+nil = reserved "nil" >> return Nil
 
 
 injl :: CParser Term
@@ -102,6 +109,7 @@ ctype =
   try (unitty <|> intty)
   <|> sumty <|> prodty
   <|> funty  <|> saysty
+  <|> ebpf
 
 unitty :: CParser Type
 unitty = do
@@ -136,6 +144,10 @@ funty = do
   ty2 <- ctype
   return (FunTy x ty1 ty2)
 
+ebpf :: CParser Type
+ebpf = do
+  symbol "ebpf"
+  return EBPFTy
   
 lam :: CParser Term
 lam = do symbol "\\"
@@ -155,6 +167,55 @@ bind = do reserved "bind"
           t2 <- term
           return (Bind x t1 t2)
 
+cletrec :: CParser Term
+cletrec = do reserved "letrec"
+             x <- identifier
+             symbol "=" 
+             t1 <- term
+             reserved "in"
+             t2 <- term
+             return (Letrec x t1 t2)
+
+constructor :: CParser Term
+constructor = ebpfadd <|> ebpfsub <|> ebpfmov <|> ebpfjmp
+
+ebpfadd :: CParser Term
+ebpfadd = do reserved "ebpfadd"
+             return EBPFAdd
+ebpfsub :: CParser Term
+ebpfsub = do reserved "ebpfsub"
+             return EBPFSub
+ebpfmov :: CParser Term
+ebpfmov = do reserved "ebpfmov"
+             return EBPFMov
+ebpfjmp :: CParser Term
+ebpfjmp = do reserved "ebpfjmp"
+             return EBPFJmp
+
+list :: CParser Term
+list = chainr1 constructor (do symbol ":"; return Cons)
+
+ctuple :: CParser (Term, Term)
+ctuple = do symbol "("
+            t1 <- constructor
+            symbol ","
+            t2 <- term
+            symbol ")"
+            return (t1, t2)
+
+tuplelist :: CParser [(Term, Term)]
+tuplelist = do symbol "["
+               l <- sepBy ctuple (symbol ",")
+               symbol "]"
+               return  l
+
+match :: CParser Term
+match = do reserved "match"
+           t <- term
+           reserved "with"
+           l <- tuplelist
+           return (Match t l)
+         
 principal :: CParser Principal
 principal =
     primitive

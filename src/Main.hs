@@ -62,17 +62,36 @@ main =
 
 
 -- Complex  ebpfVerifier
--- Counts number of ebpf instructions
+-- Verifier logic:
+--  1. Counts number of ebpf instructions
+--  2. returns signed predicate "Safe" if the count is less than 10
 cebpfVerifier :: Term
 cebpfVerifier =
   (TAbs "Z" Comp
     (Abs "x" (TyTyApp AST (TyVar "Z"))
        (Letrec "loop"
                (Abs "counter" IntTy
-                  (Abs "prog" ListTy
-                    (Match (Var "prog") [(Nil, (Var "counter")), (Cons (Var "t") (Var "tail"), 
-                           (Match (Var "t") [(EBPFAdd,  (App (App (Var "loop") (Inc (Var "counter")) )  (Var "tail"))), (EBPFSub,  (App (App (Var "loop") (Inc (Var "counter")) )  (Var "tail")) ), (EBPFMov,  (App (App (Var "loop") (Inc (Var "counter")) )  (Var "tail")) ) ]) )
-                    ]) -- end of outer match
+                  (Abs "prog" (ListTy EBPFTy)
+                    (Match (Var "prog")
+                           [
+                             (Nil, (Match (Le (Var "counter") (I 10))
+                                         [
+                                           (CTrue, (Sign (Code cebpfVerifier) (TyTyApp Safe (TyVar "Z")))),
+                                           (CFalse, CFalse)
+                                         ]
+                                   )
+                             ),
+                             (Cons (Var "t") (Var "tail"),
+                                   (Match (Var "t")
+                                                 [
+                                                   (EBPFAdd,  (App (App (Var "loop") (Inc (Var "counter")) )  (Var "tail"))),
+                                                   (EBPFSub,  (App (App (Var "loop") (Inc (Var "counter")) )  (Var "tail")) ),
+                                                   (EBPFMov,  (App (App (Var "loop") (Inc (Var "counter")) )  (Var "tail")) )
+                                                 ]
+                                   )
+                             )
+                           ]
+                    ) -- end of outer match
                   )
                )
                (App (App (Var "loop") (I 0)) (Var "x")) 
@@ -84,10 +103,10 @@ cebpfVerifier =
 -- Trivial ebpfVerifier 
 ebpfVerifier :: Term
 ebpfVerifier =
-  -- Type of ebpfVerifier is ΛZ::Comp.AST Z -> ebpfVerifier says (Terminate Z)
+  -- Type of ebpfVerifier is ΛZ::Comp.AST Z -> ebpfVerifier says (Safe Z)
   (TAbs "Z" Comp
     (Abs "x" (TyTyApp AST (TyVar "Z")) 
-         (Sign (Code ebpfVerifier) (TyTyApp Terminate (TyVar "Z"))) -- FIXME: Recursion bomb during printing
+         (Sign (Code ebpfVerifier) (TyTyApp Safe (TyVar "Z"))) -- FIXME: Recursion bomb during printing
     )
    ) 
 
@@ -107,25 +126,28 @@ runebpfVerifier (Mu "t" e)  = do
          )
 
 
-{- Takes a policy and a proof term
-- returns if the proof term satisfies/helps with enforcing the policy
-- NOTE: p is hard-coded to be
-           (forall U. ebpfVerifier says (Terminate U) -> U speaks-for Kernel
+-- Construct proof for "ebpfVerifier says (Safe (code u))"
+constructEBPFProof :: Term -> IO ThreadCfg
+constructEBPFProof u = do
+  t <- runebpfVerifier u
+  (eval  Cfg{term = t, env = M.empty})
+
+
+
+{- Takes `pol`, an access control policy and `u`, user ebpf program
+- returns if `u` satisfies the policy
+- NOTE: pol is hard-coded to be
+           (forall U. ebpfVerifier says (Safe U) -> U speaks-for Kernel
 -}
 ebpfAuthEngine :: Policy -> Term -> IO Bool
 ebpfAuthEngine pol u = do
-    cfg <- constructProof u
+    cfg <- constructEBPFProof u
     case (term cfg) of
       {- Ideally, the  proof term should be type checked. That is the essence of Curry-Howard Isomorphism
        - but here we are optimizing it by directly matching with the required term. This is because we already know
        - the shape of the policy.
       -}
-      Sign (Code v) (TyTyApp Terminate (PrinTy (Code u))) -> return (v == ebpfVerifier) -- discharges (U speaks-for Kernel)
+      Sign (Code v) (TyTyApp Safe (PrinTy (Code u))) -> return (v == ebpfVerifier) -- discharges (U speaks-for Kernel)
       _ -> return False
 
--- Construct proof for "ebpfVerifier says (Terminate (code u))"
-constructProof :: Term -> IO ThreadCfg
-constructProof u = do
-  t <- runebpfVerifier u
-  (eval  Cfg{term = t, env = M.empty})
- 
+
